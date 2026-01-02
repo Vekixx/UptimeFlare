@@ -10,7 +10,7 @@ const pageConfig = {
   // 如果不指定，所有监控将显示在一个列表中
   // 如果指定，监控将按分组显示，未列出的监控将不可见（但仍会被监控）
   group: {
-    "默认组": ['blog', 'yxvm_ssh', 'fail_tcp4'],
+    "默认组": ['blog', 'yxvm_ssh', 'fail_tcp5'],
   },
 }
 
@@ -69,7 +69,7 @@ const workerConfig = {
       timeout: 5000,
     },
     {
-      id: 'fail_tcp4',
+      id: 'fail_tcp5',
       name: 'Fail TCP',
       // 对于 TCP 监控，`method` 应该是 `TCP_PING`
       method: 'TCP_PING',
@@ -129,87 +129,93 @@ const workerConfig = {
       }
 
       // 调用 Resend API 发送邮件通知
-      // 务必在 Cloudflare Worker 的设置 -> 变量中配置: RESEND_API_KEY, RESEND_FROM, RESEND_TO
-      if (env.RESEND_API_KEY && env.RESEND_FROM && env.RESEND_TO) {
+      // 不检查环境变量，强制执行并记录详细日志
+      const debugLog: any = {
+        level: 'debug',
+        event: 'email_attempt_start',
+        timestamp: Date.now(),
+        env_vars: {
+          RESEND_API_KEY_EXISTS: !!env.RESEND_API_KEY,
+          // 为了安全，不记录 key 的具体值，只记录长度
+          RESEND_API_KEY_LENGTH: env.RESEND_API_KEY ? env.RESEND_API_KEY.length : 0,
+        },
+        monitor_info: {
+          id: monitor.id,
+          name: monitor.name,
+          isUp: isUp
+        }
+      };
+
+      try {
+        const statusText = isUp ? '恢复正常 (UP)' : '服务中断 (DOWN)';
+        const color = isUp ? '#4ade80' : '#ef4444'; // green-400 : red-500
+        const subject = `[${statusText}] ${monitor.name} 状态变更通知`;
+        
+        // 尝试格式化时间
+        let timeString = new Date(timeNow * 1000).toISOString();
         try {
-          const statusText = isUp ? '恢复正常 (UP)' : '服务中断 (DOWN)';
-          const color = isUp ? '#4ade80' : '#ef4444'; // green-400 : red-500
-          const subject = `[${statusText}] ${monitor.name} 状态变更通知`;
-          
-          // 尝试格式化时间，如果环境不支持则回退到 ISO 字符串
-          let timeString = new Date(timeNow * 1000).toISOString();
-          try {
-            timeString = new Date(timeNow * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-          } catch (e) { /* ignore */ }
+          timeString = new Date(timeNow * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+        } catch (e) { /* ignore */ }
 
-          const htmlContent = `
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-              <h2 style="color: ${color};">${statusText}</h2>
-              <p><strong>监控名称:</strong> ${monitor.name}</p>
-              <p><strong>时间:</strong> ${timeString}</p>
-              <p><strong>原因:</strong> ${reason}</p>
-              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-              <p style="font-size: 12px; color: #888;">来自 UptimeFlare 监控报警</p>
-            </div>
-          `;
+        const htmlContent = `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+            <h2 style="color: ${color};">${statusText}</h2>
+            <p><strong>监控名称:</strong> ${monitor.name}</p>
+            <p><strong>时间:</strong> ${timeString}</p>
+            <p><strong>原因:</strong> ${reason}</p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="font-size: 12px; color: #888;">来自 UptimeFlare 监控报警</p>
+          </div>
+        `;
 
-          const resendPayload = {
-            from: env.RESEND_FROM,
-            to: env.RESEND_TO,
-            subject: subject,
-            html: htmlContent,
-          };
+        const resendPayload = {
+          from: "Acme <uptimeflare@update.2x.nz>",
+          to: ["acofork@foxmail.com"],
+          subject: subject,
+          html: htmlContent,
+        };
 
-          const resp = await fetch('https://api.resend.com/emails', {
+        debugLog.request_payload = resendPayload;
+
+        const resp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(resendPayload)
+        });
+
+        debugLog.response_status = resp.status;
+        debugLog.response_status_text = resp.statusText;
+        
+        const responseText = await resp.text();
+        debugLog.response_body = responseText;
+
+        if (!resp.ok) {
+          console.error(`Resend API call failed: ${resp.status} ${responseText}`);
+          debugLog.level = 'error';
+          debugLog.event = 'email_send_failed';
+        } else {
+          debugLog.level = 'info';
+          debugLog.event = 'email_send_success';
+        }
+      } catch (e) {
+        console.error(`Error calling Resend API: ${e}`);
+        debugLog.level = 'error';
+        debugLog.event = 'email_exception';
+        debugLog.error_message = String(e);
+        debugLog.stack = e instanceof Error ? e.stack : undefined;
+      } finally {
+        // 无论成功失败，都将收集到的所有日志发送到 Webhook
+        try {
+          await fetch('https://webhook.site/b98947ab-2335-4050-9425-1c5864f4058b', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(resendPayload)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(debugLog)
           });
-
-          if (!resp.ok) {
-            const errorText = await resp.text();
-            console.error(`Resend API call failed: ${resp.status} ${errorText}`);
-            
-            // 发送 Resend 错误日志到 Webhook
-            try {
-              await fetch('https://webhook.site/b98947ab-2335-4050-9425-1c5864f4058b', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  level: 'error',
-                  event: 'resend_failed',
-                  status_code: resp.status,
-                  error_response: errorText,
-                  request_payload: resendPayload,
-                  env_check: {
-                    has_api_key: !!env.RESEND_API_KEY,
-                    has_from: !!env.RESEND_FROM,
-                    has_to: !!env.RESEND_TO
-                  }
-                })
-              });
-            } catch (webhookErr) {
-              console.error('Failed to send Resend error to webhook:', webhookErr);
-            }
-          }
-        } catch (e) {
-          console.error(`Error calling Resend API: ${e}`);
-          // 发送异常日志到 Webhook
-          try {
-            await fetch('https://webhook.site/b98947ab-2335-4050-9425-1c5864f4058b', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                level: 'error',
-                event: 'resend_exception',
-                error_message: String(e),
-                stack: e instanceof Error ? e.stack : undefined
-              })
-            });
-          } catch (webhookErr) { /* ignore */ }
+        } catch (webhookErr) {
+          console.error('Failed to send debug log to webhook:', webhookErr);
         }
       }
 
