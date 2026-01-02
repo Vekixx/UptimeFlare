@@ -10,7 +10,7 @@ const pageConfig = {
   // 如果不指定，所有监控将显示在一个列表中
   // 如果指定，监控将按分组显示，未列出的监控将不可见（但仍会被监控）
   group: {
-    "默认组": ['blog', 'yxvm_ssh', 'fail_tcp2'],
+    "默认组": ['blog', 'yxvm_ssh', 'fail_tcp3'],
   },
 }
 
@@ -69,12 +69,12 @@ const workerConfig = {
       timeout: 5000,
     },
     {
-      id: 'fail_tcp2',
+      id: 'fail_tcp3',
       name: 'Fail TCP',
       // 对于 TCP 监控，`method` 应该是 `TCP_PING`
       method: 'TCP_PING',
       // 对于 TCP 监控，`target` 应该是 `host:port`
-      target: '0.0.0.0:22',
+      target: '192.168.124.14:22',
       //tooltip: '我的生产服务器 SSH',
       //statusPageLink: 'https://example.com',
       timeout: 5000,
@@ -105,6 +105,28 @@ const workerConfig = {
     ) => {
       // 当任何监控的状态发生变化时，将调用此回调
       // 在这里编写任何 Typescript 代码
+
+      // 发送状态变更日志到 Webhook
+      try {
+        await fetch('https://webhook.site/b98947ab-2335-4050-9425-1c5864f4058b', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            level: 'info',
+            event: 'status_change',
+            monitor: {
+              id: monitor.id,
+              name: monitor.name
+            },
+            status: isUp ? 'UP' : 'DOWN',
+            timestamp: timeNow,
+            reason: reason,
+            downtime_duration: isUp ? (timeNow - timeIncidentStart) : 0
+          })
+        });
+      } catch (e) {
+        console.error('Error sending webhook log:', e);
+      }
 
       // 调用 Resend API 发送邮件通知
       // 务必在 Cloudflare Worker 的设置 -> 变量中配置: RESEND_API_KEY, RESEND_FROM, RESEND_TO
