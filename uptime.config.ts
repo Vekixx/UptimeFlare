@@ -9,9 +9,9 @@ const pageConfig = {
   // [可选] 对监控进行分组
   // 如果不指定，所有监控将显示在一个列表中
   // 如果指定，监控将按分组显示，未列出的监控将不可见（但仍会被监控）
-  group: {
-    "默认组": ['blog', 'yxvm_ssh'],
-  },
+  //group: {
+ //  "默认组": ['blog', 'yxvm_ssh'],
+  //},
 }
 
 const workerConfig = {
