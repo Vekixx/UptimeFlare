@@ -10,7 +10,7 @@ const pageConfig = {
   // 如果不指定，所有监控将显示在一个列表中
   // 如果指定，监控将按分组显示，未列出的监控将不可见（但仍会被监控）
   group: {
-    "默认组": ['blog', 'yxvm_ssh', 'fail_tcp1'],
+    "默认组": ['blog', 'yxvm_ssh', 'fail_tcp2'],
   },
 }
 
@@ -69,7 +69,7 @@ const workerConfig = {
       timeout: 5000,
     },
     {
-      id: 'fail_tcp1',
+      id: 'fail_tcp2',
       name: 'Fail TCP',
       // 对于 TCP 监控，`method` 应该是 `TCP_PING`
       method: 'TCP_PING',
