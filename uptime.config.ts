@@ -119,7 +119,7 @@ const workerConfig = {
     {
       id: 'pan_nas',
       name: 'OpenList（NAS）',
-      method: 'HEAD',
+      method: 'GET',
       target: 'https://pan.acofork.com/',
       statusPageLink: 'https://pan.acofork.com/',
       hideLatencyChart: false,
@@ -157,16 +157,6 @@ const workerConfig = {
       timeout: 10000,
     },
     {
-      id: 'gh_proxy_nf',
-      name: 'Github 代理（Netlify）',
-      method: 'HEAD',
-      target: 'https://nf-gh.072103.xyz/',
-      statusPageLink: 'https://nf-gh.072103.xyz/',
-      hideLatencyChart: false,
-      expectedCodes: [200],
-      timeout: 10000,
-    },
-    {
       id: 'eopfapi',
       name: '随机图API（EdgeOne）',
       method: 'HEAD',
@@ -189,7 +179,7 @@ const workerConfig = {
     {
       id: 'upload_to_s3',
       name: '简单上传文件到S3（EdgeOne Pages）',
-      method: 'HEAD',
+      method: 'GET',
       target: 'https://u.2x.nz/',
       statusPageLink: 'https://u.2x.nz/',
       hideLatencyChart: false,
