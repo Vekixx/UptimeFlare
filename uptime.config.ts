@@ -1,6 +1,6 @@
 const pageConfig = {
   // 状态页面的标题
-  title: "Vekixx&#39;s StatePage",
+  title: "Vekixx's StatePage",
   // 在状态页面头部显示的链接，可以设置 `highlight` 为 `true`
   links: [
     { link: 'https://github.com/Vekixx', label: 'GitHub' },
@@ -140,8 +140,8 @@ const workerConfig = {
       id: 'FileCodeBox',
       name: 'FileCodeBox',
       method: 'HEAD',
-      target: 'https://fl.vekixx.com/',
-      statusPageLink: 'https://fl.vekixx.com/',
+      target: 'https://fl.vekixx.com/#/',
+      statusPageLink: 'https://fl.vekixx.com/#/',
       hideLatencyChart: false,
       expectedCodes: [200],
       timeout: 10000,
